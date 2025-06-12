@@ -20,17 +20,9 @@ package io.ballerina.flowmodelgenerator.extension;
 
 import io.ballerina.compiler.api.SemanticModel;
 import io.ballerina.flowmodelgenerator.core.DataMapManager;
-import io.ballerina.flowmodelgenerator.extension.request.DataMapperAddElementRequest;
-import io.ballerina.flowmodelgenerator.extension.request.DataMapperModelRequest;
-import io.ballerina.flowmodelgenerator.extension.request.DataMapperQueryConvertRequest;
-import io.ballerina.flowmodelgenerator.extension.request.DataMapperSourceRequest;
-import io.ballerina.flowmodelgenerator.extension.request.DataMapperTypesRequest;
-import io.ballerina.flowmodelgenerator.extension.request.DataMapperVisualizeRequest;
-import io.ballerina.flowmodelgenerator.extension.response.DataMapperAddElementResponse;
-import io.ballerina.flowmodelgenerator.extension.response.DataMapperModelResponse;
-import io.ballerina.flowmodelgenerator.extension.response.DataMapperSourceResponse;
-import io.ballerina.flowmodelgenerator.extension.response.DataMapperTypesResponse;
-import io.ballerina.flowmodelgenerator.extension.response.DataMapperVisualizeResponse;
+import io.ballerina.flowmodelgenerator.extension.request.*;
+import io.ballerina.flowmodelgenerator.extension.response.*;
+import io.ballerina.modelgenerator.commons.CommonUtils;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Project;
 import org.ballerinalang.annotation.JavaSPIService;
@@ -178,6 +170,28 @@ public class DataMapperService implements ExtendedLanguageServerService {
                 DataMapManager dataMapManager = new DataMapManager(workspaceManager, document.get());
                 response.setSource(dataMapManager.addElement(request.flowNode(), request.propertyKey(),
                         Path.of(request.filePath()), request.targetField(), project, request.position()));
+            } catch (Throwable e) {
+                response.setError(e);
+            }
+            return response;
+        });
+    }
+
+    @JsonRequest
+    public CompletableFuture<DataMapperPositionResponse> position(DataMapperPositionRequest request) {
+        return CompletableFuture.supplyAsync(() -> {
+            DataMapperPositionResponse response = new DataMapperPositionResponse();
+            try {
+                String fileUri = CommonUtils.getExprUri(request.filePath());
+                Path filePath = Path.of(request.filePath());
+                Project project = this.workspaceManager.loadProject(filePath);
+                Optional<Document> document = this.workspaceManager.document(filePath);
+                if (document.isEmpty()) {
+                    return response;
+                }
+                DataMapManager dataMapManager = new DataMapManager(workspaceManager, document.get());
+                response.setMappingsModel(dataMapManager.getPosition(request.flowNode(), request.propertyKey(),
+                        filePath, request.port(), project, request.position()));
             } catch (Throwable e) {
                 response.setError(e);
             }

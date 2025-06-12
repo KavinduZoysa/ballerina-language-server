@@ -1175,6 +1175,53 @@ public class DataMapManager {
         return intermediateClauses;
     }
 
+    public JsonElement getPosition(JsonElement node, String propertyKey, Path filePath, String targetField,
+                                   Project project, LinePosition position) {
+        FlowNode flowNode = gson.fromJson(node, FlowNode.class);
+        if (flowNode.codedata().node() != NodeKind.VARIABLE) {
+            return null;
+        }
+        Optional<Property> optProperty = flowNode.getProperty(propertyKey);
+        if (optProperty.isEmpty()) {
+            return null;
+        }
+        Property property = optProperty.get();
+        String source = property.toSourceCode();
+
+        SourceModification sourceModification = applyNode(flowNode, project, filePath, position);
+        Node stNode = sourceModification.stNode();
+        if (stNode.kind() != SyntaxKind.LOCAL_VAR_DECL) {
+            return null;
+        }
+        Optional<Symbol> symbol = sourceModification.semanticModel().symbol(stNode);
+        if (symbol.isEmpty()) {
+            return null;
+        }
+        TypeSymbol targetType = getTargetType(((VariableSymbol) symbol.get()).typeDescriptor(), targetField);
+        if (targetType == null) {
+            return null;
+        }
+        VariableDeclarationNode varDeclNode = (VariableDeclarationNode) stNode;
+        if (varDeclNode.initializer().isEmpty()) {
+            return null;
+        }
+        ExpressionNode initializer = varDeclNode.initializer().get();
+        if (initializer.kind() != SyntaxKind.MAPPING_CONSTRUCTOR) {
+            return null;
+        }
+        MappingConstructorExpressionNode mappingCtrExprNode = (MappingConstructorExpressionNode) initializer;
+        Map<String, MappingFieldNode> mappingFieldNodeMap = convertMappingFieldsToMap(mappingCtrExprNode);
+        String[] splits = targetField.split("\\.");
+        int length = splits.length;
+        for (int i = 1; i < length; i++) {
+            MappingFieldNode mappingFieldNode = mappingFieldNodeMap.get(splits[i]);
+            if (mappingFieldNode == null) {
+
+            }
+        }
+        return null;
+    }
+
     private record Model(List<MappingPort> inputs, MappingPort output, List<Mapping> mappings, Query query) {
 
         private Model(List<MappingPort> inputs, MappingPort output, List<Mapping> mappings) {

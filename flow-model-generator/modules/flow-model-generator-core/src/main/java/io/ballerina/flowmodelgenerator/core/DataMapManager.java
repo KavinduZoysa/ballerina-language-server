@@ -83,8 +83,11 @@ import io.ballerina.tools.text.LinePosition;
 import io.ballerina.tools.text.LineRange;
 import io.ballerina.tools.text.TextDocument;
 import io.ballerina.tools.text.TextRange;
+import org.ballerinalang.diagramutil.connector.models.connector.ReferenceType;
 import org.ballerinalang.diagramutil.connector.models.connector.Type;
 import org.ballerinalang.diagramutil.connector.models.connector.TypeInfo;
+import org.ballerinalang.diagramutil.connector.models.connector.reftypes.RefRecordType;
+import org.ballerinalang.diagramutil.connector.models.connector.reftypes.RefType;
 import org.ballerinalang.diagramutil.connector.models.connector.types.ArrayType;
 import org.ballerinalang.diagramutil.connector.models.connector.types.PrimitiveType;
 import org.ballerinalang.diagramutil.connector.models.connector.types.RecordType;
@@ -583,8 +586,19 @@ public class DataMapManager {
                 if (optName.isEmpty()) {
                     continue;
                 }
-                Type type = Type.fromSemanticSymbol(symbol);
-                MappingPort mappingPort = getMappingPort(optName.get(), optName.get(), type, true);
+                MappingPort mappingPort;
+                try {
+                    RefType refType = ReferenceType.fromSemanticSymbol(symbol);
+                    if (refType == null) {
+                        Type type = Type.fromSemanticSymbol(symbol);
+                        mappingPort = getMappingPort(optName.get(), optName.get(), type, true);
+                    } else {
+                        mappingPort = getMappingPort(optName.get(), optName.get(), refType, true);
+                    }
+                } catch (UnsupportedOperationException e) {
+                    Type type = Type.fromSemanticSymbol(symbol);
+                    mappingPort = getMappingPort(optName.get(), optName.get(), type, true);
+                }
                 if (mappingPort == null) {
                     continue;
                 }
@@ -618,6 +632,23 @@ public class DataMapManager {
             }
         }
         return mappingPorts;
+    }
+
+    private MappingPort getMappingPort(String id, String name, RefType type, boolean isInputPort) {
+        String typeName = type.typeName;
+        if (typeName.equals("record")) {
+            RefRecordType recordType = (RefRecordType) type;
+            MappingRecordPort recordPort = new MappingRecordPort(id, name, type.name, typeName);
+            for (ReferenceType.Field field : recordType.fields) {
+                recordPort.fields.add(
+                        getMappingPort(id + "." + field.fieldName(), field.fieldName(), field.type(), isInputPort));
+            }
+            return recordPort;
+        } else if (typeName.equals("int") || typeName.equals("float") || typeName.equals("boolean")
+                || typeName.equals("string") || typeName.equals("decimal")) {
+            return new MappingPort(id, name, typeName, typeName);
+        }
+        throw new IllegalStateException("Unsupported type: " + typeName);
     }
 
     private MappingPort getMappingPort(String id, String name, Type type, boolean isInputPort) {

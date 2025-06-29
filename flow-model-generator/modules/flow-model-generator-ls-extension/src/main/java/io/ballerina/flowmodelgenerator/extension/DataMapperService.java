@@ -40,8 +40,11 @@ import io.ballerina.flowmodelgenerator.extension.response.DataMapperVisualizeRes
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Project;
 import org.ballerinalang.annotation.JavaSPIService;
+import org.ballerinalang.langserver.LSClientLogger;
+import org.ballerinalang.langserver.commons.LanguageServerContext;
 import org.ballerinalang.langserver.commons.service.spi.ExtendedLanguageServerService;
 import org.ballerinalang.langserver.commons.workspace.WorkspaceManager;
+import org.ballerinalang.langserver.commons.workspace.WorkspaceManagerProxy;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -55,11 +58,19 @@ import java.util.concurrent.CompletableFuture;
 public class DataMapperService implements ExtendedLanguageServerService {
 
     private WorkspaceManager workspaceManager;
+    private WorkspaceManagerProxy workspaceManagerProxy;
 
     @Override
-    public void init(LanguageServer langServer, WorkspaceManager workspaceManager) {
-        this.workspaceManager = workspaceManager;
+    public void init(LanguageServer langServer, WorkspaceManagerProxy workspaceManagerProxy,
+                     LanguageServerContext serverContext) {
+        this.workspaceManagerProxy = workspaceManagerProxy;
+        this.workspaceManager = workspaceManagerProxy.get();
     }
+//
+//    @Override
+//    public void init(LanguageServer langServer, WorkspaceManager workspaceManager) {
+//        this.workspaceManager = workspaceManager;
+//    }
 
     @Override
     public Class<?> getRemoteInterface() {
@@ -184,15 +195,15 @@ public class DataMapperService implements ExtendedLanguageServerService {
             DataMapperVisualizeResponse response = new DataMapperVisualizeResponse();
             try {
                 Path filePath = Path.of(request.filePath());
-                this.workspaceManager.loadProject(filePath);
-                Optional<SemanticModel> semanticModel = this.workspaceManager.semanticModel(filePath);
-                Optional<Document> document = this.workspaceManager.document(filePath);
-                if (document.isEmpty() || semanticModel.isEmpty()) {
+                Project project = this.workspaceManagerProxy.get().loadProject(filePath);
+                Optional<Document> document = this.workspaceManagerProxy.get().document(filePath);
+                if (document.isEmpty()) {
                     return response;
                 }
+                SemanticModel semanticModel = project.currentPackage().getCompilation().getSemanticModel(document.get().module().moduleId());
                 DataMapManager dataMapManager = new DataMapManager(document.get());
                 response.setVisualizableProperties(
-                        dataMapManager.getVisualizableProperties(semanticModel.get(), request.flowNode()));
+                        dataMapManager.getVisualizableProperties(semanticModel, request.flowNode()));
             } catch (Throwable e) {
                 response.setError(e);
             }

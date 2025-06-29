@@ -63,7 +63,7 @@ public class ReferenceType {
         String moduleId = symbol.getModule().isPresent()
                 ? symbol.getModule().get().id().toString()
                 : null;
-        RefType type = fromSemanticSymbol(typeSymbol, symbol.getName().orElseThrow(), moduleId);
+        RefType type = fromSemanticSymbol(typeSymbol, typeSymbol.getName().orElseThrow(), moduleId);
 
         for (String dependentTypeHash : type.dependentTypeHashes) {
             RefType dependentType = visitedTypeMap.get(dependentTypeHash);
@@ -165,19 +165,33 @@ public class ReferenceType {
                     : null;
             return fromSemanticSymbol(typeSymbol, name, moduleId);
         } else if (kind == TypeDescKind.INT) {
-            return new RefType("int");
+            RefType refType = new RefType("int");
+            refType.typeName = "int";
+            return refType;
         } else if (kind == TypeDescKind.STRING) {
-            return new RefType("string");
+            RefType refType = new RefType("string");
+            refType.typeName = "string";
+            return refType;
         } else if (kind == TypeDescKind.FLOAT) {
-            return new RefType("float");
+            RefType refType = new RefType("float");
+            refType.typeName = "float";
+            return refType;
         } else if (kind == TypeDescKind.BOOLEAN) {
-            return new RefType("boolean");
+            RefType refType = new RefType("boolean");
+            refType.typeName = "boolean";
+            return refType;
         } else if (kind == TypeDescKind.NIL) {
-            return new RefType("nil");
+            RefType refType = new RefType("nil");
+            refType.typeName = "nil";
+            return refType;
         } else if (kind == TypeDescKind.DECIMAL) {
-            return new RefType("decimal");
+            RefType refType = new RefType("decimal");
+            refType.typeName = "decimal";
+            return refType;
         } else if (kind == TypeDescKind.NEVER) {
-            return new RefType("never");
+            RefType refType = new RefType("never");
+            refType.typeName = "never";
+            return refType;
         }
         throw new UnsupportedOperationException(
                 "Unsupported type kind: " + kind + " for symbol: " + symbol.getName().orElse("unknown"));

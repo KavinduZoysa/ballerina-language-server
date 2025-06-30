@@ -34,6 +34,7 @@ import org.ballerinalang.diagramutil.connector.models.connector.reftypes.RefType
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public class ReferenceType {
     private static final Map<String, RefType> visitedTypeMap = new HashMap<>();
@@ -44,16 +45,25 @@ public class ReferenceType {
     public static RefType fromSemanticSymbol(Symbol symbol) {
         SymbolKind kind = symbol.kind();
         TypeSymbol typeSymbol = null;
+        String name = "";
         if (kind == SymbolKind.TYPE_DEFINITION) {
             typeSymbol = ((TypeDefinitionSymbol) symbol).typeDescriptor();
+            name = symbol.getName().orElseThrow();
         } else if (kind == SymbolKind.PARAMETER) {
             typeSymbol = ((ParameterSymbol) symbol).typeDescriptor();
+            name = typeSymbol.getName().orElseThrow();
         } else if (kind == SymbolKind.RECORD_FIELD) {
             typeSymbol = ((RecordFieldSymbol) symbol).typeDescriptor();
+            name = typeSymbol.getName().orElseThrow();
         } else if (kind == SymbolKind.VARIABLE) {
             typeSymbol = ((VariableSymbol) symbol).typeDescriptor();
+            Optional<String> optName = typeSymbol.getName();
+            // If the variable does not have a name, we can use the symbol name
+            // which is usually the variable name.
+            name = optName.orElseGet(() -> symbol.getName().orElseThrow());
         } else if (kind == SymbolKind.TYPE) {
             typeSymbol = (TypeSymbol) symbol;
+            name = typeSymbol.getName().orElseThrow();
         }
 
         if (typeSymbol == null) {
@@ -63,7 +73,7 @@ public class ReferenceType {
         String moduleId = symbol.getModule().isPresent()
                 ? symbol.getModule().get().id().toString()
                 : null;
-        RefType type = fromSemanticSymbol(typeSymbol, typeSymbol.getName().orElseThrow(), moduleId);
+        RefType type = fromSemanticSymbol(typeSymbol, name, moduleId);
 
         for (String dependentTypeHash : type.dependentTypeHashes) {
             RefType dependentType = visitedTypeMap.get(dependentTypeHash);

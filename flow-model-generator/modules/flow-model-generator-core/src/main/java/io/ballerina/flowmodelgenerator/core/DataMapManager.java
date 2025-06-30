@@ -86,6 +86,7 @@ import io.ballerina.tools.text.TextRange;
 import org.ballerinalang.diagramutil.connector.models.connector.ReferenceType;
 import org.ballerinalang.diagramutil.connector.models.connector.Type;
 import org.ballerinalang.diagramutil.connector.models.connector.TypeInfo;
+import org.ballerinalang.diagramutil.connector.models.connector.reftypes.RefArrayType;
 import org.ballerinalang.diagramutil.connector.models.connector.reftypes.RefRecordType;
 import org.ballerinalang.diagramutil.connector.models.connector.reftypes.RefType;
 import org.ballerinalang.diagramutil.connector.models.connector.types.ArrayType;
@@ -97,12 +98,8 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextEdit;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.sql.Ref;
+import java.util.*;
 
 /**
  * Generates types of the data mapper model.
@@ -593,7 +590,7 @@ public class DataMapManager {
                         Type type = Type.fromSemanticSymbol(symbol);
                         mappingPort = getMappingPort(optName.get(), optName.get(), type, true);
                     } else {
-                        mappingPort = getMappingPort(optName.get(), optName.get(), refType, true);
+                        mappingPort = getMappingPort(optName.get(), optName.get(), refType, true, refType.dependentTypes);
                     }
                 } catch (UnsupportedOperationException e) {
                     Type type = Type.fromSemanticSymbol(symbol);
@@ -634,21 +631,35 @@ public class DataMapManager {
         return mappingPorts;
     }
 
-    private MappingPort getMappingPort(String id, String name, RefType type, boolean isInputPort) {
+    private MappingPort getMappingPort(String id, String name, RefType type, boolean isInputPort, Map<String, RefType> dependentTypes) {
         String typeName = type.typeName;
         if (typeName.equals("record")) {
             RefRecordType recordType = (RefRecordType) type;
             MappingRecordPort recordPort = new MappingRecordPort(id, name, type.name, typeName);
             for (ReferenceType.Field field : recordType.fields) {
                 recordPort.fields.add(
-                        getMappingPort(id + "." + field.fieldName(), field.fieldName(), field.type(), isInputPort));
+                        getMappingPort(id + "." + field.fieldName(), field.fieldName(), getDependantType(field.type(), dependentTypes), isInputPort, dependentTypes));
             }
             return recordPort;
+        } else if (typeName.equals("array")) {
+            RefArrayType arrayType = (RefArrayType) type;
+            MappingPort memberPort = getMappingPort(isInputPort ? id + ".0" : id, null, getDependantType(arrayType.elementType, dependentTypes),
+                    isInputPort, dependentTypes);
+            MappingArrayPort arrayPort = new MappingArrayPort(id, name, memberPort == null ? "record" :
+                    memberPort.typeName + "[]", type.typeName);
+            arrayPort.setMember(memberPort);
+            return arrayPort;
         } else if (typeName.equals("int") || typeName.equals("float") || typeName.equals("boolean")
                 || typeName.equals("string") || typeName.equals("decimal")) {
             return new MappingPort(id, name, typeName, typeName);
         }
         throw new IllegalStateException("Unsupported type: " + typeName);
+    }
+
+    private RefType getDependantType(RefType type, Map<String, RefType> dependentTypes) {
+        String hashCode = type.hashCode;
+        RefType refType = dependentTypes.get(hashCode);
+        return refType == null ? type : refType;
     }
 
     private MappingPort getMappingPort(String id, String name, Type type, boolean isInputPort) {

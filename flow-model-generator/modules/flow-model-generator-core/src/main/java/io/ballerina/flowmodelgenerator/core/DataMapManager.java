@@ -2153,14 +2153,12 @@ public class DataMapManager {
         List<String> paramNames = new ArrayList<>();
         for (Parameter parameter : parameters) {
             String paramName = parameter.type();
-            if (parameter.isNullable()) {
-                paramName = paramName + "?";
-            }
-            paramName = paramName + " " + parameter.name();
             if (parameter.isOptional()) {
-                paramName = paramName + " = " + getDefaultValue(parameter.kind());
+                if (!paramName.contains("?") && !paramName.contains("()")) {
+                    paramName = paramName + "?";
+                }
             }
-            paramNames.add(paramName);
+            paramNames.add(paramName + " " + parameter.name());
         }
 
         Path functionsFilePath;
